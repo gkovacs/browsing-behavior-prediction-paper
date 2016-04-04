@@ -212,7 +212,25 @@ As shown in (figure) our results indicate that
 
 Now that we have an estimation of when the browser was active, the final step is to determine which URL was focused at any given point in time.
 
-A simple heuristic is to simply guess that for each span we reconstructed, the time of the entire span was spent at the URL at the start of the span. This heuristic works well in contexts such as single-page applications, such as an infinite-scrolling feed which the user will visit but then keep reading for several minutes. We find that on a second-by-second basis, this heuristic predicts the correct URL 69\% of the time, and predicts the correct domain 76\% of the time.
+A simple heuristic is to simply guess that for each span we reconstructed, the time of the entire span was spent at the URL at the start of the span. This heuristic works well in contexts such as single-page applications, such as an infinite-scrolling feed which the user will visit but then keep reading for several minutes. We find that on a second-by-second basis, this heuristic predicts the correct URL 69\% of the time, and predicts the correct domain 76\% of the time. Of the 24\% error, in 29\% of the cases (or 7.0\% of the total) the correct domain is actually the domain of the immediately following event in the history.
+
+
+%correct span 10360007312.0 which is 0.72783254396 of ref_active_time
+%=== span reconstruction evaluation ===
+%precision 0.746274604706
+%recall 0.72783254396
+%f1 0.736938213111
+%tp 0.118874937284
+%tn 0.796256473024
+%fp 0.0404162090775
+%fn 0.0444523806144
+%=== url reconstruction evaluation ===
+%correct url 0.500926082329 of ref_active_time 0.688243589115 of correct_span
+%nexturl_correct 0.0134997931514 of ref_active_time 0.0185479383458 of correct span
+%correct_domain 0.0504557689828 of ref_active_time 0.0693233208676 of correct span
+%nextdomain_correct 0.0378389101391 of ref_active_time 0.051988483413 of correct span
+%incorrect_domain 0.125111989357 of ref_active_time 0.171896668259 of correct span
+%Counter({'both_inactive': 69394130261.79248, 'correct_url': 7130208615.686523, 'ref_active_but_rec_inactive': 3874046108.644287, 'ref_inactive_but_rec_active': 3522291839.916748, 'incorrect_domain_other': 1486239466.4279785, 'correct_domain': 718190111.0822754, 'nextdomain_correct': 538601068.3000488, 'nexturl_correct': 192156776.88549805, 'incorrect_domain_next_url_is_none': 170093613.7878418, 'incorrect_domain_ref_equals_next_domain': 124517659.85888672})
 
 A more sophisticated heuristic takes into account the set of tabs we believe to be open. Here, for each domain that could be at the start of the span we compute a distribution of the domains we expect users will spend time on. We then pick, among the tabs we believe to be open, the URL that is most likely to have time spent on, given the starting domain.
 
