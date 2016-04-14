@@ -23,6 +23,8 @@
 \usepackage{times}    % comment if you want LaTeX's default font
 \usepackage{url}      % llt: nicely formatted URLs
 
+\usepackage{paralist}
+
 % llt: Define a global style for URLs, rather that the default one
 \makeatletter
 \def\url@leostyle{%
@@ -45,7 +47,7 @@
 % since its job is to redefine many LaTeX commands.
 \usepackage[pdftex]{hyperref}
 \hypersetup{
-pdftitle={Reconstructing Browsing Activities from Browser History},
+pdftitle={Reconstructing Browsing Activities from Browser Histories},
 pdfauthor={LaTeX},
 pdfkeywords={SIGCHI, proceedings, archival format},
 bookmarksnumbered,
@@ -65,7 +67,7 @@ breaklinks=true,
 % End of preamble. Here it comes the document.
 \begin{document}
 
-\title{Reconstructing Browsing Activities from Browser History}
+\title{Reconstructing Detailed Browsing Activities\\from Browser History}
 
 \numberofauthors{3}
 \author{
@@ -89,7 +91,7 @@ breaklinks=true,
 \maketitle
 
 \begin{abstract}
-Users' browsing activities -- such as what sites they are spending time on and for how long, or what tabs they have open and which are focused at any given time -- is useful for a number of research and practical applications. Gathering such data, however, requires a longitudinal study in which users must install a monitoring toolkit. In contrast, a browser extension is able to instantly access months of browsing history. However, browsing histories do not include important information such as time spent. In this work we aim to reconstruct time spent on sites from browsing histories. We gathered 3 months of browsing histories, and 2 weeks of browsing activities from 150 users. We are able to reconstruct the URL the user is looking at with X\% accuracy, and total time spent on domains with an $R^2$ value of Y.
+Users' detailed browsing activity -- such as what sites they are spending time on and for how long, and what tabs they have open and which one is focused at any given time -- is useful for a number of research and practical applications. Gathering such data, however, requires that users install and use a monitoring tool over long periods of time. In contrast, browser extensions can gain instantaneous access months of browser history data. However, the browser history is incomplete: it records only navigation events, missing important information such as time spent or tab focused. In this work, we aim to reconstruct time spent on sites with only users' browsing histories. We gathered three months of browsing history and two weeks of ground-truth detailed browsing activity from 185 participants. We developed a machine learning algorithm that predicts whether the browser window is focused and active at one second-level granularity with an F1-score of 0.84. During periods when the browser is active, the algorithm can predict which the domain the user was looking at with 76.2\% accuracy. We can use these results to reconstruct the total time spent online for each user with an $R^2$ value of 0.96, and the total time each user spent on each domain with an $R^2$ value of 0.92.
 \end{abstract}
 
 \keywords{
@@ -100,55 +102,79 @@ browsing histories; browsing activities; browser focus; web browsing
 
 \section{Introduction}
 
-Knowing where users spend their time online, second-by-second, has numerous applications to both research and products. For example, productivity-tracking tools like RescueTime provide users with information about how much time they are spending on different site types. Browsing activity data is also essential for studying phenomenon such as self-interruptions, where users may take a break from work to spend time on other sites.
+Knowing where users spend their time online, second-by-second, has numerous applications to both research and product. For example, productivity-tracking tools like RescueTime provide information about how much time users spend online on productivity and entertainment sites. Browsing activity data is also essential for studying phenomenon such as self-interruptions, where users may take a break from work to spend time on other sites.
 
-However, gathering browsing activity data is a long and intrusive process. It requires the end user to install a monitoring application -- such as a browser extension -- that continually logs where users are spending their time, and transmits it to a server. This requires extensive permissions which may make users wary of participation, on suspicions that the extension may be malware. The user must also keep the extension installed over the duration of the study (whereas we observed many Mechanical Turk users would simply uninstall the extension after they have been paid). Most problematically, a longitudinal study is required, with duration equivalent to the amount of browsing activity data we wish to collect.
+However, gathering browsing activity data is a long and intrusive process. It requires the end user to install a monitoring application --- such as a browser extension --- that continually logs where users are spending their time, and transmits it to a server. This requires extensive permissions which may make users wary of participation, on suspicions that the extension may be malware. The user must also keep the extension installed over the duration of the study. %(whereas, for example, many Mechanical Turk users simply uninstall extensions after they have been paid). 
+Most problematically, a longitudinal study is required, with duration equivalent to the amount of browsing activity data desired.
 
-Browsing histories, in contrast, can be instantly gathered by a browser extension. For a Chrome extension, it requires only a Browsing History permission which is classified as low-risk, and can be uninstalled as soon as the history has been transmitted to the server, which should help alleviate potential concerns that the software is malware. Most promisingly, users' browsing histories can store several months of browsing data, allowing us to instantly get results without a longitudinal study.
+Browsing histories, in contrast, can be instantaneously gathered by a browser extension. For a Chrome extension, this requires only a Browsing History permission, which is classified as low-risk. Browser histories can be automatically or manually scanned and filtered before sending~\cite{eyebrowse}, and can be uninstalled as soon as the history has been transmitted to the server. Most promisingly, users' browsing histories can store up to several months of historical browsing data, allowing us to instantly get results without a longitudinal study.
 
-In this work we aim to reconstruct four pieces of browsing activity, using browsing histories:
+In this work we aim to reconstruct four pieces of browsing activity, using only browsing history:
 
-\begin{enumerate}
-	\item At what times is the browser being actively used?
-	\item What tabs are open at any given time?
-	\item What URL is the browser focused on at any given time?
-	\item How much time did users spend overall on each domain?
-\end{enumerate}
+\begin{compactitem}
+	\item When is the browser focused and being actively used?
+	%\item What tabs are open at any given time?
+	\item What domain is the browser focused on at any given time?
+	\item How much time did each user spend actively browsing?
+	\item How much time did each user spend on each domain?
+\end{compactitem}
 
-These tasks are non-trivial because the browsing history represents only events where a new page is visited, and not time spent within a page or switching/closing tabs. This makes naive time-estimation heuristics fail on pages where users might spend a long time without any record in the browsing history (ie, watching a Youtube video, or scrolling down a Facebook news feed).
+These tasks are non-trivial because the browsing history represents only a thin slice: it logs events when a new page is visited, not time spent within a page or switching/closing tabs. This makes naive time-estimation heuristics fail on pages where users might spend a long time without any record in the browsing history (ie, watching a YouTube video, or scrolling down a Facebook news feed).
 
-To train and evaluate our reconstruction mechanism, we gathered browsing histories, and 2 weeks of second-by-second browsing activities, from 200 Mechanical Turk users. Our techniques outperform heuristics such as assuming a fixed time after a page visit, and are able to correctly reconstruct the URL the browser is focused on X\% of the time.
+To train and evaluate our reconstruction mechanism, we gathered browsing histories, as well as two weeks of second-by-second browsing activities, from 185 participants recruited from Amazon Mechanical Turk. We utilize domain-related and temporal features in a random forest to outperform heuristics such as assuming a fixed time after a page visit, and are able to correctly reconstruct the time the user spent on domains with an $R^2$ value of 0.92. % the browser is focused on X\% of the time.
+
+\pagebreak
 
 \section{Related Work}
 
+\subsection{Gathering Browsing Activities}
+
 Gathering browsing activities by logging it in a longitudinal study is a methodology that underlies a number of studies. For example, Mark et al have conducted studies that relate browsing activities to sleep debt \cite{mark2016sleep} and stress \cite{mark2014stress}, as well as using them to investigate social media usage \cite{wang2015coming} and multitasking \cite{mark2015focused}.
 
-Eyebrowse is an application where users can voluntarily share their browsing activities \cite{eyebrowse}. They have gathered a dataset of browsing activities from their userbase. Although we considered using Eyebrowse's dataset for training and evaluating our model rather than collecting our own, at the time we checked it, there were only 14 users with at least 1000 logged visits, which was not enough data. Furthermore, as users only selectively share their browsing histories in the Eyebrowse system, it may be biased and underrepresent certain activities, whereas our own collected dataset represents the full range of activities that users engage in online.
+Eyebrowse is an application where users can voluntarily share their browsing activities \cite{eyebrowse}. They have gathered a dataset of browsing activities from their userbase. %Eyebrowse's darAlthough we considered using Eyebrowse's dataset for training and evaluating our model rather than collecting our own, it is currently too sparse to train our models. %at the time we checked it, there were only 14 users with at least 1000 logged visits, which was not enough training data. 
+%Furthermore, as users only selectively share their browsing histories in the Eyebrowse system, it may be biased and underrepresent certain activities, whereas our own collected dataset represents the full range of activities that users engage in online.
+We complement Eyebrowse by gathering a larger longitudinal dataset of full browsing activities and introducing a model for reconstructing attention data. If our model is successful, however, it may threaten some measure of users' security on Eyebrowse.
 
-Park et al investigate the relationship between video view durations on Youtube and its view count, number of likes per view, and sentiment in the comments \cite{youtubeduration}. They find that these factors have significant predictive power over the duration the video, and are able to predict the duration of video views with an $R^2$ value of 0.19.
+\subsection{Estimating User Activities from Logs}
+
+Although no prior work has attempted to reconstruct browsing activities from browsing histories, there has been work on estimating user activities from logged data in other contexts.
+
+Huang \emph{et al.} use mouse clicks and cursor movements to estimate users' gaze on search engine result pages \cite{huang2011no, huang2012user}. Park \emph{et al.} investigate the relationship between video view durations on Youtube and its view count, number of likes per view, and sentiment in the comments \cite{youtubeduration}. They find that these factors have significant predictive power over the duration the video, and are able to predict the duration of video views with an $R^2$ value of 0.19.
 
 \section{Dataset}
 
 \subsection{Dataset Collection}
 
-We first gathered a dataset of browsing activities and browser histories. We recruited 200 users from Mechanical Turk, and asked them to install our extension which collects browser histories, and browsing activity events (browser window and tab focus and switches, as well as mouse and keyboard activity such as clicks and scrolls on pages), and transmits it to our servers.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\columnwidth]{top-domains}
+    \caption{The top 10 domains for which we have time logged in our dataset.}
+    \label{fig:top-domains}
+\end{figure}
 
-Users were compensated \$2 for installing the extension, and were given a bonus of \$1 for each week they kept the extension installed. We excluded users if they uninstalled the extension, became inactive for more than 3 days, or cleared their browsing history.
 
-We were able to gather data from 150 users in this way (most of the 50 who dropped uninstalled the extension shortly after receiving the initial \$2 payment), which we then split into our training and test sets (data from 75 users in each).
+We first gathered a dataset of browsing activities and browser histories. We recruited 225 participants from Mechanical Turk, and asked them to install our extension which collects browser histories and browsing activity events (window and tab focus and switches, as well as mouse and keyboard activity such as clicks and scrolls on pages), and transmits it to our servers.
 
-\subsection{Summary Statistics}
+We paid users \$2 for installing the extension, and gave a bonus of \$1 for each week they kept the extension installed. We excluded users if they uninstalled the extension or became inactive for more than 3 days. We were able to gather data from 185 users in this way --- most of the 40 who dropped uninstalled the extension shortly after receiving the initial \$2 payment. We split the 185 users into training and test sets (93 users in the training set, 92 users in the test set).
 
-In (some figure) we show summary statistics for our dataset. Users spend much time on Mechanical Turk (as we are sampling from a pool of Mechanical Turk users), but they also spend time browsing other, more broadly-used sites.
+% We paid users \$2 for installing the extension, and gave a bonus of \$1 for each week they kept the extension installed. We excluded users if they uninstalled the extension or became inactive for more than 3 days. %, or cleared their browsing history.
+
+% We were able to gather data from 185 users in this way (most of the 40 who dropped uninstalled the extension shortly after receiving the initial \$2 payment), which we then split into our training and test sets (93 users in the training set, 92 users in the test set).
+
+%\subsection{Summary Statistics}
+
+In \autoref{fig:top-domains} we show the total amount of time spent on each domain, across all users. The domain with the most time spent is Mechanical Turk (as our users are from Mechanical Turk), but the other sites are all broadly used and representative of the sites used by a general audience.
+
+%In (some figure) we show summary statistics for our dataset. Users spend much time on Mechanical Turk (as we are sampling from a pool of Mechanical Turk users), but they also spend time browsing other, more broadly-used sites.
 
 \subsection{Reference Browser Activity Data}
 
-The reference browser activity dataset was obtained by logging open, close, switch, and change events for tabs and windows via Chrome's tab and window APIs for extensions. We also logged when the user's screen locks or the browser becomes idle (defined by Chrome as 1 minute without mouse or keyboard activity), via Chrome's idle API for extension. For each event, we logged which tabs and windows were open, the URLs they were visiting, and which tabs were focused.
+The reference browser activity dataset was obtained by logging open, close, switch, and change events for tabs and windows via Google Chrome's tab and window APIs for extensions. We also logged when the user's screen locked or the browser became idle (defined by Chrome as 1 minute without mouse or keyboard activity), via Chrome's idle API for extensions. For each event, we logged which tabs and windows were open, the URLs they were visiting, and which tabs were focused.
 % We also logged mouse and keyboard activities (so we can detect when the page is idle) by injecting a content script into the page.
 
-We then transformed this data into spans of time, which record when the user starts and ends a period of activity on URL (where the start occurs when the URL is visited or gains tab focus, and the end occurs by either navigating to a different page, closing the tab or window, switching to a different tab, browser window, or application, or if the browser becomes idle or the screen is locked).
+We then transformed this data into spans of time, which record when the user starts and ends a period of activity on a URL: the start occurs when the URL is visited or gains tab focus, and the end occurs by navigating to a different page, closing the tab or window, switching to a different tab, browser window, or application, or if the browser becomes idle or the screen is locked.
 
-Note that a limitation of Chrome's definition of the browser being idle is that the user may still be looking at a page without mouse or keyboard activity for an extended duration of time -- they may be slowly reading a page, thinking about some diagram, or watching a video -- which will be recorded within this dataset as an idle period.
+% Note that a limitation of Chrome's definition of the browser being idle is that the user may still be looking at a page without mouse or keyboard activity for an extended duration of time -- they may be slowly reading a page, thinking about some diagram, or watching a video -- which will be recorded within this dataset as an idle period.
 
 \subsection{History Data}
 
@@ -158,62 +184,239 @@ While attempting to find the correspondences between our history data and our re
 
 \section{Reconstruction Procedure}
 
-Since our ultimate goal is to be able to reconstruct, second-by-second, whether the user's browser is active and which page they are browsing, we broke this procedure into three subparts:
+Since our goal is to be able to reconstruct, second-by-second, whether the user's browser is active and which domain they are browsing, we broke this procedure into two parts:
 
-\begin{enumerate}
+\begin{compactitem}
 	\item Estimate the spans during which the browser is active (as opposed to the browser being closed, idle, or a different window being in focus)
-	\item Estimate which URLs are open in non-focused tabs at any given point in time. This will give us a set of candidate tabs that users might switch to.
-	\item Within spans in which we believe the browser to be active, estimate which URL is being browsed at each point in time.
-\end{enumerate}
+	%\item Estimate which URLs are open in non-focused tabs at any given point in time. This will give us a set of candidate tabs that users might switch to.
+	\item Within a span in which we believe the browser to be active, estimate which domain is being viewed at each point in time.
+\end{compactitem}
 
 \section{When was the browser active?}
 
-A baseline model for estimating when the browser was active, based on the browser history, is to simply guess that the browser remained active for some amount of time (for example, 30 seconds, 1 minute, or 2 minutes) after the last recorded event in the history.
+We consider a browser to be \textit{active} at a particular second of time if the browser window is focused and there has been mouse movement/scrolling/clicking, keyboard activity, or navigation activity within the past minute. If the browser window loses focus, is closed, or the screen is locked, we consider the browser to be inactive from that second onwards.
 
-We can evaluate the correctness of this approach by considering it as a binary classification problem for each second in the history. We consider a true positive to be when we correctly predict that the browser was active, a true negative is when we correctly predict that the browser was inactive, a false positive to be when we predict the browser was active when it was in fact inactive, and a false negative to be when we predict the browser was inactive when it was in fact active.
+Following common search engine practice, we consider a \textit{browsing session} to be a continuous period of time from the first second when the browser is active, until 20 minutes after the last second when the browser is active, such that there is no continuous inactive period of more than 20 minutes.
 
-Results for the naive model are shown in (figures). As we can see, adjusting the time threshold enables us to trade off precision and recall, with a 5-minute threshold achieving the best F1 score on the test set.
+Determining when the browser is active is a classification, for each second in the browsing session, whether or not the browser is active. We consider a true positive to be when we correctly predict that the browser was active, a true negative to be when we correctly predict that the browser was inactive, a false positive to be when we predict the browser was active when it was in fact inactive, and a false negative to be when we predict the browser was inactive when it was in fact active. (We could alternatively define our task as classifying whether the browser is active or not for all seconds we have data for, including out-of-session times, but our models correctly classify all out-of-session times as being inactive, so with the exception of true negatives on out-of-session seconds, the tasks are equivalent).
 
-We developed a more sophisticated model which approaches the problem as follows: during the span of time between an item in the browser history and the next item, is the majority of the time active or not? To make our decision, we consider the duration of the time between them, the domain of the current item, and the domain of the next item. Our approach takes advantage of the following three phenomenon:
+% We can evaluate the correctness of an algorithm that predicts wh by considering it as a binary classification problem for each second in the history. We consider a true positive to be when we correctly predict that the browser was active, a true negative is when we correctly predict that the browser was inactive, a false positive to be when we predict the browser was active when it was in fact inactive, and a false negative to be when we predict the browser was inactive when it was in fact active.
 
-\begin{enumerate}
-	\item Browsing occurs in sessions -- within a session, it is more likely that the browser was continually active.
-	\item The domain that occurs at the beginning of the span may influence the expected duration of the visit. It may be a domain that users tend to stay on for shorter/longer, or it may be a domain that tends to end sessions.
-	\item The domain that occurs at the end of the span may influence the expected duration of the visit. It may be a domain that tends to start sessions.
-\end{enumerate}
+If we did not have browsing history data for a user and only had aggregate data about their activities, a baseline approach might simply classify a user as being active in an all browsing sessions, or as inactive in all browsing sessions (whichever is more accurate for that particular user). This approach achieves an F1-score of 0.72 and accuracy of 0.63.
 
-This thus becomes a classification problem where we wish to classify whether or not the browser is active during the majority of the span, given the span duration and the domains that are at the beginning and end of the span. Unfortunately, if we simply handle the domains as categorical features are usually handled (1-hot encoding each possibility), this will result in the number of features being the number of domains squared, which will lead to dimensionality problems. Instead, we handle this by training a decision tree for more common domain pairs, and backing off to more generic classifiers if insufficient data (less than 100 positive and negative samples) is available. Because the distribution is unbalanced (more positive samples than negative), during training we balance the weights for the classes. We use a decision tree classifier (limited to depth of 1) due to fast performance. In order of priority, we use:
+% http://localhost:9998/notebooks/evaluate_baseline_timeactive_algorithms_v3_baseline2.ipynb
+%insession stats for baseline2
+%tp 11315222.0
+%tn 3414785.0
+%fp 6091069.0
+%fn 2512555.0
+%precision 0.650065082791
+%recall 0.818296534577
+%f1 0.724543597715
+%accuracy 0.631277960983
 
-\begin{enumerate}
-	\item Classifier specific to both start and end domain
-	\item Classifier specific to the start domain
-	\item Classifier specific to the end domain
-	\item Generic classifier trained on all data
-\end{enumerate}
+If we do have browser history, a simple model for estimating when the browser was active, is to simply guess that the browser remained active for some amount of time (for example, 1 minute or 2 minutes) after the last recorded event in the history. For example, if we set the threshold at 1 minute, this would achieve an F1-score of 0.64 and accuracy of 0.67. We tried various thresholds on our training data (each 1-minute threshold from 1 minute to 10), and found that a threshold of 5 minutes maximized both F1-score and accuracy. This model achieves an F1-score of 0.79 and accuracy of 0.76 on the test data.
 
-\begin{figure}[!h]
-\centering
-\includegraphics[width=0.9\columnwidth]{span_reconstruction_results}
-\caption{Span reconstruction results. Baseline X minutes indicate the reconstruction heuristic where we assume that the browser is active up to X minutes after each history event. Our approach achieves a higher F1 score than any of the baseline approaches.}
-\label{fig:spanreconstruction}
+% http://localhost:9998/notebooks/evaluate_baseline_timeactive_algorithms_v2.ipynb
+
+%insession stats for threshold 1
+%tp 7031130.0
+%tn 8805057.0
+%fp 700797.0
+%fn 7266435.0
+%precision 0.909363215664
+%recall 0.491771151241
+%f1 0.638337915373
+%accuracy 0.665290435798
+
+%insession stats for threshold 5
+%tp 11006782.0
+%tn 6986509.0
+%fp 2519345.0
+%fn 3290783.0
+%precision 0.813742322544
+%recall 0.769836122445
+%f1 0.791180552171
+%accuracy 0.755912039359
+
+
+
+We then developed a more sophisticated model for this binary classification problem using machine learning. It is based on the following intuitions:
+
+\begin{compactitem}
+	%\item Browsing occurs in sessions -- within a session, it is more likely that the browser was continually active.
+	\item Browsing occurs in spans of activity -- within a continuous browsing span, the navigation activities will be densely packed.
+	\item The domain may influence the expected duration of the visit -- it may be a domain that users tend to stay on for shorter or longer.
+	\item The domain also influences how frequently navigation events will occur -- consider a domain that displays content in a paginated format (where navigation events will occur frequently and will be recorded in the history), versus a single-page application with infinite scrolling (where no navigation events will be recorded in the history).
+\end{compactitem}
+
+We capture the importance of the domain and the browsing spans using the following features for classification. For all time-based features, we used the logarithm of the duration.
+
+\begin{compactitem}
+    \item Time between the most recent activity and next activity in the history. If short, then the user is likely actively browsing during that entire timespan.
+    \item Time since the most recent activity in the history. If short, the user is likely still on that page.
+    \item Time until the next activity in the history. If short, the user may have just switched back to the browser window but has not yet made a navigation event.
+    \item Domain on which the previous browsing activity occurred in the history (categorical feature with 20 categories, representing the top 20 most popular domains in the training data).
+    \item Domain on which the next browsing activity occurs in the history (categorical feature with 20 categories).
+    \item RescueTime productivity level of the domain (categorical feature with 5 categories, drawn from the RescueTime community).
+\end{compactitem}
+
+For the two categorical features with domains, the 20 domains we consider are the ones that had the most visits among the users in the training set. We consider only the top 20 domains because of the way categorical features are turned into a binary vector with length equal to the number of possible categories (in our case, 20 binary features to represent 20 possible domains), through a process known as one-hot encoding. To avoid the curse of dimensionality (which would lead to increased model complexity, training time, and overfitting), we consider only the top 20 domains.
+
+Productivity levels assigned one of 5 categories to each domain: very productive, productive, neutral, distracting, or very distracting. These classifications were drawn from RescueTime, which obtained the classifications from annotations by their userbase. Domains which RescueTime does not have a productivity level for are assigned a default neutral level. As this is also a categorical feature, this is transformed into a length-5 binary feature vector via one-hot encoding.
+
+We then train a random forest with these features, using H2O's implementation of the random forest algorithm with the default parameters \cite{randomforest}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\columnwidth]{active-prediction}
+    \caption{Performance of our machine learning method, versus various simpler approaches, on the task of predicting whether the user's browser is active at a particular second within the browsing session.}
+    \label{fig:active-prediction}
 \end{figure}
 
-The performance of this classifier on the task of predicting whether the browser is active during the majority of a span is 0.98 precision, 0.98 recall, and 0.98 F1 score. If we take these results and fill in the spans accordingly, this results in the scores shown in \autoref{fig:spanreconstruction} , where we see that our F1 score of 0.74 outperforms all of our baseline classifiers.
+Our model achieves an F1 score of 0.84 and accuracy of 0.80 on the task of predicting whether the browser is active or not at a given second of time. In \autoref{fig:active-prediction}, we show the performance of our model on the task of classifying each in-session second as either active or inactive, compared to each baseline.
 
-\section{Which tabs were open?}
+Our model successfully classifies all out-of-session samples as true negatives, so on the task of predicting whether the browser is active or not at all times (including out-of-session, e.g., while the user is sleeping), the precision, recall, and F1 scores remain equal, while accuracy rises to 0.96.
 
-Next, we determine which tabs were open at any given time. A simple heuristic to estimate this is to assume that tabs remain open for a certain number of minutes after they appear in the history. We can evaluate the correctness of our estimate by comparing, at each point in time where the set of tabs changes, to the actual tabs which are open. This is again a binary classification task: each URL that we correctly predict is open in a tab is counted as a true positive, each URL that we predict is open in a tab but is not is counted as a false positive, and each URL that is open in a tab but we did not predict is counted as a false negative.
+\section{Total time each user spent browsing}
 
-A more sophisticated heuristic takes into account the expected lifetime of a tab, given the domain.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\columnwidth]{user-timespent-plot}
+    \caption{In this graph, for each user in our test set, we plotted a point for the total active time they spent online (x-coordinate is the actual time, and the y-coordinate is the time our algorithm estimates).}
+    \label{fig:domain-timespent-plot}
+\end{figure}
 
-As shown in (figure) our results indicate that 
+Now that we have reconstructed whether a user is actively using the browser at any given point in time, we can estimate the total amount of time each user spent online. In \autoref{fig:domain-timespent-plot}, for each user we have plotted the reference time the user spent online, against the time our algorithm estimates that the user spent online (reconstructed by summing the active seconds predicted by our classifier). The result is well-correlated, with an $R^2$ value of 0.96.
 
-\section{Which URL was focused?}
+If we consider for each user the absolute error normalized by the total reference time spent online, and take the mean across users, the mean normalized absolute error for our predicted total online times is 0.15 ($\sigma$=0.14). If we had instead used the 5-minute-threshold classifier for determining what the active-browsing times were for each user, the mean normalized absolute error for our predicted online times would be 0.19 ($\sigma$=0.21).
 
-Now that we have an estimation of when the browser was active, the final step is to determine which URL was focused at any given point in time.
+% 0.9793549752130275
 
-A simple heuristic is to simply guess that for each span we reconstructed, the time of the entire span was spent at the URL at the start of the span. This heuristic works well in contexts such as single-page applications, such as an infinite-scrolling feed which the user will visit but then keep reading for several minutes. We find that on a second-by-second basis, this heuristic predicts the correct URL 69\% of the time, and predicts the correct domain 76\% of the time. Of the 24\% error, in 29\% of the cases (or 7.0\% of the total) the correct domain is actually the domain of the immediately following event in the history.
+%\begin{figure}[!h]
+%\centering
+%\includegraphics[width=0.9\columnwidth]{span_reconstruction_results}
+%\caption{Span reconstruction results. Baseline X minutes indicate the reconstruction heuristic where we assume that the browser is active up to X minutes after each history event. Our approach achieves a higher F1 score than any of the baseline approaches.}
+%\label{fig:spanreconstruction}
+%\end{figure}
 
+% The performance of this classifier on the task of predicting whether the browser is active during the majority of a span is 0.98 precision, 0.98 recall, and 0.98 F1 score. If we take these results and fill in the spans accordingly, this results in the scores shown in \autoref{fig:spanreconstruction} , where we see that our F1 score of 0.74 outperforms all of our baseline classifiers.
+
+%\section{Which tabs were open?}
+
+%Next, we determine which tabs were open at any given time. A simple heuristic to estimate this is to assume that tabs remain open for a certain number of minutes after they appear in the history. We can evaluate the correctness of our estimate by comparing, at each point in time where the set of tabs changes, to the actual tabs which are open. This is again a binary classification task: each URL that we correctly predict is open in a tab is counted as a true positive, each URL that we predict is open in a tab but is not is counted as a false positive, and each URL that is open in a tab but we did not predict is counted as a false negative.
+
+%A more sophisticated heuristic takes into account the expected lifetime of a tab, given the domain.
+
+
+\section{Which domain was focused?}
+
+Now that we have an estimation of when the browser was active, we can determine which domain was focused at any given point in time. The active domain often does not match the most recent navigation event in the history, because users switch tabs or keep multiple windows open.
+
+If we had only aggregate data about users' browsing activity, we might simply always predict that that the user is on the domain that they spend the most time on. This approach predicts the domain correctly on 31.6\% of seconds (among the seconds the browser is active, on the users in the test set).
+% 0.315825110981
+
+If we have browsing history data for a user, a simple heuristic for predicting which domain the user is on is to assume that we are browsing the page that was visited most recently. This is able to predict the domain correctly on 74.2\% of seconds in the dataset (among the seconds the browser is active, on the users in the test set).
+
+We developed a more sophisticated model which treats problem as a multi-class classification problem. Our model attempts to decide between 4 classes for the domain the user is currently on:
+
+\begin{compactitem}
+    \item The domain in the most recent navigation event in the history, which we will refer to as C (for ``current'')
+    \item The domain in the next navigation event in the history, which we will refer to as N
+    \item The domain before C in the history (not matching C), which we will refer to as P1 (``past, one back'')
+    \item The domain before P1 the history (not matching C or P1), which we will refer to as P2 (``past, two back'')
+\end{compactitem}
+
+The intuition behind our model is that if a user has tabbed over to a different tab, it must have been opened at some point in the past -- this is what P1 and P2 are designed to keep track of (they approximate potential tabs that might be open in the background). The type of domain also matters -- users are more likely to keep certain common sites, such as Facebook or Gmail, open in the background than other pages. Finally, if a user has switched to a different tab, they may eventually navigate to another page from it, which will appear in the browsing history.
+
+We choose these 4 classes because they account for most of the domains the user is on during browsing -- in our test data, 92.4\% of active browsing time will be on one of these domains. (As for the remaining 7.6\% of time, for 6.3\% the domain visit appears further back in the browsing history, while 1.3\% do not appear in the history at all -- we will discuss reasons for this in the Discussion section).
+% 0.923669649872
+% newtab accounts for 
+% 0.987228522613 occur in the history
+% 0.012771477387000019 do not occur in the history at all
+
+Note that these classes can overlap (ie, N can equal C, P1, or P2). In these cases, for the purpose of labeling samples in our training data, we labeled it as the most common class it could belong to (where the order of commonness is C, N, P1, P2). In the 7.6\% of seconds where the active domain did not match any of C, N, P1, or P2, we did not include the sample in our training data.
+
+The features we used are described below. For all time-based features, we used the logarithm of the duration. We will use the shorthand t(C) to refer to the time of the most recent navigation event in the history, t(N) to refer to the time the next navigation event, t(P1) to refer to the time of the most recent history event where P2 appears, and t(P2) to refer to the time of the most recent history event where P2 appears.
+
+\begin{compactitem}
+    \item Time between t(C) and t(N). If short, the user will likely not be tabbing to other locations.
+    \item Time that has elapsed since t(C). If short, the user is likely still on domain C.
+    \item Time until t(N). If short and N was already open as a tab, the user may have switched to domain N.
+    \item Time that has elapsed since t(P1). If long, the user is less likely to be on P1.
+    \item Time that has elapsed since t(P2).
+    \item \# of visits in the history that have occured since t(P1). If large, the user is less likely to be on P1.
+    \item \# of visits in the history that have occured since t(P2).
+    \item \# of times in the past 20 minutes that a history event on N follows an event on a different domain. If high, N is likely to be a site that the user leaves open in the background.
+    \item \# of times in the past 20 minutes that a history event on C follows an event on a different domain.
+    \item \# of times in the past 20 minutes that a history event on P1 follows an event on a different domain.
+    \item \# of times in the past 20 minutes that a history event on P2 follows an event on a different domain.
+    \item Whether the referring visit id (the source page for the navigation event) of N equals the visit id of C. If true, the user had likely stayed on C prior to opening N.
+    \item Whether the referring visit id of N equals the visit id of P1. If true, the user had likely switched tabs to P1 prior to opening N.
+    \item Whether the referring visit id of N equals the visit id of P2.
+    \item Which domain C, N, P1, and P2 are (each is a categorical feature with 20 categories)
+    \item Whether N is the same domain as C, P1, or P2 (these 3 binary features help resolve overlap in classes)
+\end{compactitem}
+
+% variable importances
+% [(u'cur_domain_letter', 9510330.0, 1.0, 0.0945520443845848), (u'prev1_domain_letter', 8392055.0, 0.8824147006465601, 0.08343411394114365), (u'next_domain_letter', 7633569.5, 0.802660843524883, 0.075893223702733), (u'spanlen', 7452972.5, 0.7836712816484812, 0.07409772180535165), (u'prev2_domain_letter', 7020345.5, 0.7381810620661954, 0.06979652854434286), (u'n_eq_c', 6193563.5, 0.6512459083964489, 0.06157663203598028), (u'to_next', 5242589.5, 0.5512521121769697, 0.052122014177652956), (u'since_cur', 5113725.0, 0.5377021617546395, 0.05084083866391186), (u'since_prev2', 4348893.5, 0.4572810302061022, 0.043236856264276036), (u'since_prev1', 4203444.0, 0.4419871865645041, 0.04179079208146475), (u'visits_since_p1', 4150081.5, 0.43637618252994376, 0.04126026017894692), (u'switchto_in_session_next', 3941879.25, 0.4144839611243774, 0.03919030588893065), (u'switchto_in_session_cur', 3844495.5, 0.40424417449236777, 0.0382221131288122), (u'visits_since_p2', 3485527.5, 0.36649911201819496, 0.03465324030645529), (u'n_eq_p1', 3402651.0, 0.3577847456397412, 0.033829279149856194), (u'switchto_in_session_prev1', 3174608.5, 0.3338063453108357, 0.03156207237768618), (u'switchto_in_session_prev2', 2427411.0, 0.255239408096249, 0.02413340784301169), (u'nref_eq_c', 2034084.625, 0.21388160295173775, 0.02022294281533885), (u'cref_eq_zero', 1712448.25, 0.18006191688406187, 0.017025222357195235), (u'cref_eq_n', 1441450.625, 0.15156683574597307, 0.014330954180684318), (u'nref_eq_p1', 1439698.0, 0.1513825492911392, 0.014313529519627392), (u'nref_eq_zero', 1158041.375, 0.12176668685524056, 0.011513289180100545), (u'n_eq_p2', 1089774.375, 0.11458849219743164, 0.010834576200214205), (u'cref_eq_c', 1012878.625, 0.10650299463846155, 0.010070075876147012), (u'nref_eq_p2', 640573.9375, 0.06735559517913679, 0.006368609224927868), (u'cref_eq_p1', 413341.9375, 0.043462417970774936, 0.004109460473034088), (u'cref_eq_p2', 102584.1875, 0.010786606511025379, 0.001019895697589523)]
+
+The categorical features representing domains represent the 20 most common domains in the training set. The referring visit id feature makes use of a metadata field accessible via Chrome's history API which tells us which prior link a particular visit came from, if it was accessed by clicking a link.
+
+% The categorical features for RescueTime productivity levels that we had used in the browser active/inactive prediction task had low predictive power on this task, so we did not include them.
+
+We then train a random forest with these features, using H2O's implementation of the random forest algorithm with the default parameters \cite{randomforest}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\columnwidth]{confusion-matrix}
+    \caption{Confusion matrix for our random forest, which classifies each active second of browsing as either the domain seen most recently in the history (C), the next domain in the history (N), the domain before C in the history (P1), or the domain before P1 in the history (P2).}
+    \label{fig:confusion-matrix}
+\end{figure}
+
+Our model correctly predicts the domain in 82.5\% of seconds where it is one of C, N, P1, or P2. The confusion matrix is shown in \autoref{fig:confusion-matrix}, showing that most errors are with rarer classes being mispredicted as more common classes. However, because in 7.6\% of the seconds the domain is not one of C, N, P1, or P2 and hence cannot be correctly classified by our model, then this results in our algorithm predicting the correct domain 76.2\% of the time (among the seconds the browser is active, on the users in the test set).
+% 0.823843605574664
+
+
+
+% Our model considers only the domain that was in the most recent history event, the domain that is in the next history event, as well as the 2 most recent previous domains (not equal to either the current or next domain). Collectively, these account for 92\% of the domains (ie, if our model performed perfectly on our multi-class classification task, it would predict the correct domain 92\% of the time). Of the remaining 8\%, 7\% are visited further back in history (ie, not the two most recent ones), while 1\% do not appear at all. Of the, while 
+% 0.923669649872
+
+% of 13836775 total
+% newtab page accounts for 87263.0 0.6\%
+% other chrome pages another 0.1\%
+% bookmarks 8379 downloads 1680 settings 1583 extensions 1583
+% klbibkeccnjlkjkiokjodocebajanakg 1750
+% gngocbkfmikdgphklgmmehbjjlfgdemm 411
+
+% 78 0.760959327589 10529223 13836775
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\columnwidth]{domain-timespent-plot}
+    \caption{In this graph, for each user in our test set, we plotted a point for each domain they visited representing the time spent on the domain (x-coordinate is the actual time, and the y-coordinate is the time our algorithm estimates).}
+    \label{fig:domain-timespent-plot}
+\end{figure}
+
+% baseline is
+% 10255076 seconds correct
+% 13836775 total
+% 0.741146401528
+
+% ours is (v78)
+% 10529223 seconds correct
+% 13836775 total
+% 0.760959327589
+
+
+
+
+
+
+
+%A simple heuristic is to simply guess that for each span we reconstructed, the time of the entire span was spent at the URL at the start of the span. This heuristic works well in contexts such as single-page applications, such as an infinite-scrolling feed which the user will visit but then keep reading for several minutes. We find that on a second-by-second basis, this heuristic predicts the correct URL 69\% of the time, and predicts the correct domain 76\% of the time. Of the 24\% error, in 29\% of the cases (or 7.0\% of the total) the correct domain is actually the domain of the immediately following event in the history.
+
+% real stats
 
 %correct span 10360007312.0 which is 0.72783254396 of ref_active_time
 %=== span reconstruction evaluation ===
@@ -232,25 +435,70 @@ A simple heuristic is to simply guess that for each span we reconstructed, the t
 %incorrect_domain 0.125111989357 of ref_active_time 0.171896668259 of correct span
 %Counter({'both_inactive': 69394130261.79248, 'correct_url': 7130208615.686523, 'ref_active_but_rec_inactive': 3874046108.644287, 'ref_inactive_but_rec_active': 3522291839.916748, 'incorrect_domain_other': 1486239466.4279785, 'correct_domain': 718190111.0822754, 'nextdomain_correct': 538601068.3000488, 'nexturl_correct': 192156776.88549805, 'incorrect_domain_next_url_is_none': 170093613.7878418, 'incorrect_domain_ref_equals_next_domain': 124517659.85888672})
 
-A more sophisticated heuristic takes into account the set of tabs we believe to be open. Here, for each domain that could be at the start of the span we compute a distribution of the domains we expect users will spend time on. We then pick, among the tabs we believe to be open, the URL that is most likely to have time spent on, given the starting domain.
+% stats with span prediction oracle
 
-As shown in (figure) our results indicate that 
+%correct span 12390782431.2 which is 0.870518663509 of ref_active_time
+%=== span reconstruction evaluation ===
+%precision 0.887264008782
+%recall 0.870518663509
+%f1 0.878811574696
+%tp 0.1421793968
+%tn 0.818607425529
+%fp 0.0180653504147
+%fn 0.0211478272561
+%=== url reconstruction evaluation ===
+%correct url 0.595153884121 of ref_active_time 0.683677339807 of correct_span
+%nexturl_correct 0.0 of ref_active_time 0.0 of correct span
+%correct_domain 0.0622658055458 of ref_active_time 0.0715272493926 of correct span
+%nextdomain_correct 0.0 of ref_active_time 0.0 of correct span
+%incorrect_domain 0.213098973843 of ref_active_time 0.2447954108 of correct span
+%Counter({'both_inactive': 71340761985.4519, 'correct_url': 8471297170.722656, 'incorrect_domain_other': 2245061316.1828613, 'ref_active_but_rec_inactive': 1843010536.8388672, 'ref_inactive_but_rec_active': 1574375975.5039062, 'correct_domain': 886278585.1293945, 'incorrect_domain_ref_equals_next_domain': 689509119.4919434, 'incorrect_domain_next_url_is_none': 98636239.71826172})
+
+%A more sophisticated heuristic takes into account the set of tabs we believe to be open. Here, for each domain that could be at the start of the span we compute a distribution of the domains we expect users will spend time on. We then pick, among the tabs we believe to be open, the URL that is most likely to have time spent on, given the starting domain.
 
 \section{How much time was spent on each domain?}
 
-Having now reconstructed the URLs where users spent their time on a second-by-second, we can now evaluate how accurately this can be used to compute overall time spent on domains. Overall time spent on domains is a useful piece of data that can be used in several time-tracking and productivity applications, as well as studies where time spent online or on a specific service is of interest.
+Having now reconstructed the domains where users spent their time on a second-by-second basis, we can now evaluate how accurately this can be used to compute overall time spent on domains. Overall time spent on domains is a useful piece of data that can be used in several time-tracking and productivity applications, as well as studies where time spent online or on a specific service is of interest.
 
-We computed for each user an estimate of how much time they spent on each domain, and then computed the weighted Pearson product-moment correlation coefficient between the estimated and actual times, with each domain representing a sample weighted according to the total amount of time the user spent on it (to give more importance to the domains users spent more time on).
+% We computed for each user an estimate of how much time they spent on each domain, and then computed the weighted Pearson product-moment correlation coefficient between the estimated and actual times, with each domain representing a sample weighted according to the total amount of time the user spent on it (to give more importance to the domains users spent more time on).
 
-As shown in (figure) our results indicate that 
+In \autoref{fig:domain-timespent-plot}, for each user in our test set, we plotted a point for each domain they visited, representing the relation between actual time spent on the domain, versus our combined prediction model's predicted time (which was obtained by first determining the active seconds with our browser-active machine learning classifier, feeding this to our focused-domain machine learning classifier, and summing over the results). Our reconstructed total time spent on each domain is well-correlated with the actual time spent. If we take the mean of the $R^2$ value over all users, we achieve a mean $R^2$ value of 0.92 ($\sigma$=0.122). If instead of our machine learning classifiers we instead use the simpler 5-minute active-threshold and most-recent-domain heuristic classifiers, this achieves a mean $R^2$ value of 0.91 ($\sigma$=0.123).
+
+We also computed for each user the absolute error summed over each domain prediction, and normalized it by the total time spent. With our machine learning classifiers, the mean of this normalized absolute error is 0.305 across users ($\sigma$=0.129), while with the heuristic classifiers, the mean normalized absolute error is 0.344 ($\sigma$=0.128).
 
 \section{Discussion}
 
-Discussion will go here
+%\subsection{Addressing Potential Sources of Error and Limitations of our Technique}
+
+We will now discuss sources of errors and limitations of our technique, and how they might be addressed.
+
+If we look back to our plot of reconstructed total domain-focus times in \autoref{fig:domain-timespent-plot}, we see that there are a handful of outliers where we predict a much lower amount of browsing than the reference. Many of these are due to rarer video sites or long single-page articles which are not among the top 20 domains. Here, users might spend several minutes actively browsing without any record in the history. A potential way to fix this issue is to estimate the amount of time it would take a user to consume the content within a given URL, using a headless browser. For example, for video content, we could scrape the page, see if there are any videos, and detect the length of the video. We might then predict whether the user had fully watched the video or not -- based on whether the next event in the browsing history occurred around when the video would have finished playing. Analogously, for textual content, we might estimate the amount of time needed to read the article based on the amount of visible text, and develop a model to predict whether the user had fully read the article based on the surrounding browsing history. This information could then be used to correct our estimate of how much time the user had actually spent on the page.
+
+Another underlying cause for some underestimates of time spent was that the user had partially cleared their browsing history -- Chrome provides an option to clear browsing history from the past hour. Although we had attempted to exclude users who cleared their browsing histories from our training and test datasets, our technique had only detected when users had cleared at least a day's worth of data (as our extension sent the histories to our servers on a daily basis). Hence, when making computations and inferences using browsing histories, we must consider the possibility that the user may have partially cleared their history.
+
+We had mentioned that during 1.3\% of all active browsing seconds, the domain that the user was focused on did not appear anywhere in the preceding browsing history. Although part of this may have been due to users partially clearning their browsing histories, another cause was that URLs for certain non-http/https protocols are not logged in the history. Among these, the chrome://newtab page which is visited when the user opens a new tab accounts for nearly half (0.6\% of total active browsing seconds), while other chrome:// URLs such as the the bookmarks, downloads, settings, extension settings, and various extension-related pages contributed to another 0.1\% of total active browsing seconds.
+
+An additional limitaiton of our technique is that browsing histories are not logged in incognito mode (this is Chrome's term for the private browsing mode), so we might not be able to capture all browsing activity from users who use the incognito feature. However, this limitation is also shared by using a browser extension to log data, as browser extensions are disabled in incognito mode by default.
+
+% Finally, browsing history can be programatically manipulated by websites via the HTML5 History API, which could also potentially be a source of error, though we did not find specific examples in our dataset of this phenomenon.
+
+%\subsection{Applications of Reconstructed Browsing Histories}
+
+%We have shown that 
 
 \section{Conclusion}
 
-Conclusion will go here
+Browsing activity data, which tells us on a second-by-second basis whether the browser is active and which page is being viewed, is useful for many experiments and applications, but is difficult and time-consuming to gather as it requires a longitudinal study. Browsing histories, in contrast, are easy to gather -- we can access several months of browsing history data instantly simply by asking the user to install a Chrome extension -- but does not capture key details, such as when the browser is in focus, when the user is actively browsing a page, and when the user switches windows or tabs. 
+
+In this paper we used browser histories to reconstruct estimates of 4 key elements of browsing activity: what times the browser is active, which domain the user is focused on when the browser is active, total time spent online, and total time spent on each domain. We first gathered a dataset by asking Mechanical Turk users to install our extension which collects both longitudinal browsing activity data as well as browser logs. We then used this gathered dataset to by training a pair of machine learning algorithms, one of which classifies whether the browser is active or not at a given second, and another which identifies which domain is focused when the browser is active. These metrics can be used to derive how much time the user spent on each domain, as well as the total time spent online.
+
+These reconstructed browsing activities have many applications, both for research and productivity applications. For example, in the context of a productivity or time-tracking application, we can bootstrap the process with our estimates of time spent on each domain, allowing the user to see (approximate) results immediately based on several months of data. It can also be used to develop more robost sureveys, and smarter interventions: rather than asking people to self-report how much time they spend on sites like Facebook, a survey can ask the user to install an extension that will locally compute an estimate based on the user's browsing history, and fill out the question. If we collected these reconstructed browsing activities for a pool of potential participants and stored them in a database, experiments and interventions that target particular populations -- for example, users who spend over four hours on Reddit each day -- can now much more effectively recruit participants based on their browsing activities. % Interventions can also be better personalized -- for example, .
+
+Reconstructed browsing activity data could also potentially be used to gather data and identify patterns in browsing behaviors faster and at larger scale than the small datasets we can collect via longitudinal studies. We hope we might be able to use these at-scale reconstructed browsing activities to understand patterns of behaviors such as self-interruptions during web usage, and use this to develop interventions to improve users' productivity. The ability to instantly reconstruct several months' worth of browsing activities by asking the user to install an extension would open the gates to a new class of intelligent productivity-enhancement, survey, and data mining opportunities.
+
+\section{Extension and API}
+
+We have developed an open-source Chrome extension and an API that allows researchers to access an end-user's reconstructed browsing activity and total time spent per-domain from their own websites, once the user has installed our extension. It is available at (URL redacted to preserve anonymity).
 
 % Balancing columns in a ref list is a bit of a pain because you
 % either use a hack like flushend or balance, or manually insert
@@ -272,6 +520,8 @@ Conclusion will go here
 % Or, just remove \balance and give up on balancing the last page.
 %
 \balance
+
+\pagebreak
 
 % REFERENCES FORMAT
 % References must be the same font size as other body text.
