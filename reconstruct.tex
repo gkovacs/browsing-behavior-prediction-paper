@@ -69,23 +69,11 @@ breaklinks=true,
 
 \title{Reconstructing Detailed Browsing Activities\\from Browser History}
 
-\numberofauthors{3}
+\numberofauthors{1}
 \author{
-  \alignauthor 1st Author Name\\
-    \affaddr{Affiliation}\\
-    \affaddr{Address}\\
-    \email{e-mail address}\\
-    \affaddr{Optional phone number}
-  \alignauthor 2nd Author Name\\
-    \affaddr{Affiliation}\\
-    \affaddr{Address}\\
-    \email{e-mail address}\\
-    \affaddr{Optional phone number}    
-  \alignauthor 3rd Author Name\\
-    \affaddr{Affiliation}\\
-    \affaddr{Address}\\
-    \email{e-mail address}\\
-    \affaddr{Optional phone number}
+  \alignauthor Geza Kovacs\\
+    \affaddr{Stanford University}\\
+    \email{geza@cs.stanford.edu}\\
 }
 
 \maketitle
@@ -496,9 +484,9 @@ These reconstructed browsing activities have many applications, both for researc
 
 Reconstructed browsing activity data could also potentially be used to gather data and identify patterns in browsing behaviors faster and at larger scale than the small datasets we can collect via longitudinal studies. We hope we might be able to use these at-scale reconstructed browsing activities to understand patterns of behaviors such as self-interruptions during web usage, and use this to develop interventions to improve users' productivity. The ability to instantly reconstruct several months' worth of browsing activities by asking the user to install an extension would open the gates to a new class of intelligent productivity-enhancement, survey, and data mining opportunities.
 
-\section{Extension and API}
+\section{Extension and Code}
 
-We have developed an open-source Chrome extension and an API that allows researchers to access an end-user's reconstructed browsing activity and total time spent per-domain from their own websites, once the user has installed our extension. It is available at (URL redacted to preserve anonymity).
+We have developed an open-source Chrome extension and reconstruction code that allows researchers to access an end-user's reconstructed browsing activity and total time spent per-domain from their own websites, once the user has installed our extension. The Chrome extension is available at \url{https://github.com/gkovacs/browserlog} and the reconstruction code is at \url{https://github.com/gkovacs/browsing-behavior-reconstuction-analysis}
 
 % Balancing columns in a ref list is a bit of a pain because you
 % either use a hack like flushend or balance, or manually insert
@@ -521,7 +509,7 @@ We have developed an open-source Chrome extension and an API that allows researc
 %
 \balance
 
-\pagebreak
+%\pagebreak
 
 % REFERENCES FORMAT
 % References must be the same font size as other body text.
